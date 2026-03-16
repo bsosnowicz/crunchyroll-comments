@@ -1,0 +1,25 @@
+/*
+ * extension.css — Bazowe style dla komponentów rozszerzenia
+ *
+ * UWAGA: Ten plik NIE jest importowany bezpośrednio do komponentów React,
+ * ponieważ Vite wstrzykuje CSS do <head> strony hosta, co łamie izolację Shadow DOM.
+ *
+ * Style dla komponentów są zdefiniowane inline w CommentsSection.tsx
+ * i wstrzykiwane bezpośrednio do Shadow DOM przez tag <style>.
+ *
+ * Ten plik służy jako dokumentacja / szablon dla stylów
+ * i może być używany w przyszłości przez narzędzia CSS-in-JS.
+ */
+
+/*
+  Paleta kolorów używana w projekcie:
+  --vc-primary:     #065fd4  (niebieski YouTube)
+  --vc-danger:      #cc0000  (czerwony błędów)
+  --vc-text:        #0f0f0f  (czarny tekst)
+  --vc-muted:       #606060  (szary pomocniczy)
+  --vc-border:      #e5e5e5  (obramowania)
+  --vc-bg:          #f9f9f9  (tło formularza)
+  --vc-radius:      8px       (zaokrąglenie kart)
+  --vc-radius-sm:   6px       (zaokrąglenie inputów)
+  --vc-radius-pill: 20px      (przyciski pill)
+*/
