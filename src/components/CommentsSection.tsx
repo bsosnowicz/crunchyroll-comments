@@ -1,8 +1,19 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
 import { CommentsIcon, SortIcon } from './icons';
-import type { Comment } from './CommentItem';
+import type { Comment as UIComment } from './CommentItem';
+import { useComments } from '../hooks/useComments';
+import type { Comment } from '../lib/supabase';
+
+function toUIComment(row: Comment): UIComment {
+  return {
+    id: row.id,
+    author: row.author_name,
+    content: row.content,
+    createdAt: new Date(row.created_at),
+  };
+}
 
 interface CommentsSectionProps {
   videoId: string;
@@ -369,18 +380,11 @@ const styles = `
   }
 `;
 
-export function CommentsSection({ videoId: _videoId }: CommentsSectionProps): React.ReactElement {
-  const [comments, setComments] = useState<Comment[]>([]);
+export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactElement {
+  const { comments, loading, error, addComment } = useComments(videoId);
 
-  const handleAddComment = (content: string) => {
-    const newComment: Comment = {
-      id: crypto.randomUUID(),
-      author: 'You',
-      content,
-      createdAt: new Date(),
-      replyCount: 0,
-    };
-    setComments(prev => [newComment, ...prev]);
+  const handleAddComment = async (content: string) => {
+    await addComment('You', content);
   };
 
   return (
@@ -400,13 +404,17 @@ export function CommentsSection({ videoId: _videoId }: CommentsSectionProps): Re
 
         <CommentForm onSubmit={handleAddComment} />
 
-        {comments.length === 0 ? (
+        {loading && <p className="comments-empty">Ładowanie komentarzy...</p>}
+        {error && <p className="comments-empty">{error}</p>}
+
+        {!loading && !error && comments.length === 0 && (
           <p className="comments-empty">No comments yet. Be the first!</p>
-        ) : (
+        )}
+        {!loading && !error && comments.length > 0 && (
           <ul className="comments-list">
             {comments.map(comment => (
               <li key={comment.id}>
-                <CommentItem comment={comment} />
+                <CommentItem comment={toUIComment(comment)} />
               </li>
             ))}
           </ul>
