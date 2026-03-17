@@ -21,6 +21,21 @@ export function extractVideoId(url: string): string | null {
   }
 }
 
+export function extractStableEpisodeId(): string | null {
+  const episodeSlug = window.location.pathname.match(/^\/watch\/[A-Z0-9]+\/(.+)/i)?.[1];
+  if (!episodeSlug) return null;
+
+  const seriesLinks = document.querySelectorAll<HTMLAnchorElement>('a[href*="/series/"]');
+  for (const link of seriesLinks) {
+    const match = link.pathname.match(/^\/series\/([A-Z0-9]+)/i);
+    if (match) {
+      return `${match[1]}-${episodeSlug}`;
+    }
+  }
+
+  return episodeSlug;
+}
+
 /**
  * Hook zwracający aktualne videoId na podstawie URL strony.
  * Nasłuchuje zmian nawigacji (SPA YouTube zmienia URL bez pełnego przeładowania).

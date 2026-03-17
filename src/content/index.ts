@@ -1,5 +1,5 @@
 import { injectComments } from './injector';
-import { extractVideoId } from '../hooks/useVideoId';
+import { extractVideoId, extractStableEpisodeId } from '../hooks/useVideoId';
 
 /**
  * Selektory kontenera, WEWNĄTRZ którego wstrzykujemy sekcję komentarzy.
@@ -34,7 +34,8 @@ function tryInject(): void {
     const target = document.querySelector(selector);
 
     if (target) {
-      injectComments(target, videoId);
+      const stableId = extractStableEpisodeId() ?? videoId;
+      injectComments(target, stableId);
       break;
     }
   }
