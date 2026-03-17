@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
+import { CommentsIcon, SortIcon } from './icons';
 import type { Comment } from './CommentItem';
 
 interface CommentsSectionProps {
@@ -13,261 +14,403 @@ interface CommentsSectionProps {
  * co łamie izolację Shadow DOM.
  */
 const styles = `
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
   }
 
   .comments-wrapper {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    font-family: 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 14px;
-    color: #0f0f0f;
-    max-width: 800px;
-    padding: 24px 16px;
-    background: #fff;
-    border-radius: 8px;
-    margin-top: 16px;
+    color: #ffffff;
+    width: 716px;
+    background: #000000;
+    padding: 24px 0;
   }
+
+  /* ── Header ── */
 
   .comments-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #f2f2f2;
-  }
-
-  .comments-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #0f0f0f;
-  }
-
-  .comments-badge {
-    font-size: 12px;
-    font-weight: 600;
-    background: #ff0000;
-    color: #fff;
-    padding: 2px 8px;
-    border-radius: 12px;
-  }
-
-  .comments-list {
-    list-style: none;
+    padding: 0 20px;
     margin-bottom: 24px;
   }
 
-  .comments-empty {
-    text-align: center;
-    color: #606060;
-    padding: 32px 0;
-    font-size: 15px;
-  }
-
-  /* --- CommentItem --- */
-
-  .comment-item {
+  .comments-header-left {
     display: flex;
-    gap: 12px;
-    padding: 12px 0;
-    border-bottom: 1px solid #f2f2f2;
+    align-items: center;
+    gap: 16px;
   }
 
-  .comment-item:last-child {
-    border-bottom: none;
+  .comments-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1.362;
+  }
+
+  .comments-sortby {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #ffffff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.714;
+  }
+
+  /* ── Comment Form ── */
+
+  .comment-form {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 0 20px;
+    margin-bottom: 24px;
   }
 
   .comment-avatar {
     flex-shrink: 0;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
-    background: #065fd4;
-    color: #fff;
-    font-size: 15px;
-    font-weight: 700;
+    background: #555555;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+  }
+
+  .comment-form-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex: 1;
+  }
+
+  .comment-form-input {
+    width: 100%;
+    min-height: 64px;
+    background: #1A1A1A;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    color: #ffffff;
+    line-height: 1.429;
+    resize: none;
+  }
+
+  .comment-form-input::placeholder {
+    color: #989898;
+  }
+
+  .comment-form-input:focus {
+    outline: none;
+  }
+
+  .comment-form-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .comment-form-counter {
+    font-size: 14px;
+    font-weight: 500;
+    color: #C0C0C0;
+    line-height: 1.714;
+  }
+
+  .comment-form-submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 12px;
+    height: 32px;
+    background: #F9E507;
+    border: none;
+    border-radius: 32px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #000000;
+    cursor: pointer;
+  }
+
+  .comment-form-submit:hover {
+    background: #e6d400;
+  }
+
+  .comment-form-submit:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  /* ── Comments list ── */
+
+  .comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    padding: 0 20px;
+    list-style: none;
+  }
+
+  .comments-empty {
+    text-align: center;
+    color: #C0C0C0;
+    padding: 32px 20px;
+    font-size: 14px;
+  }
+
+  /* ── Comment Item ── */
+
+  .comment-item {
+    display: flex;
+    gap: 16px;
   }
 
   .comment-body {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     min-width: 0;
   }
 
   .comment-header {
     display: flex;
-    align-items: baseline;
+    align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    margin-bottom: 4px;
+  }
+
+  .comment-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .comment-author {
+    font-size: 14px;
     font-weight: 600;
-    font-size: 13px;
-    color: #0f0f0f;
+    color: #ffffff;
+    line-height: 1.714;
   }
 
   .comment-date {
-    font-size: 11px;
-    color: #606060;
+    font-size: 14px;
+    font-weight: 500;
+    color: #C0C0C0;
+    line-height: 1.714;
+  }
+
+  .comment-menu-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 200px;
+    display: flex;
+    align-items: center;
+    color: #ffffff;
+    flex-shrink: 0;
   }
 
   .comment-content {
     font-size: 14px;
-    line-height: 1.5;
-    color: #0f0f0f;
+    font-weight: 400;
+    line-height: 1.429;
+    color: #ffffff;
     word-break: break-word;
     white-space: pre-wrap;
   }
 
-  /* --- CommentForm --- */
-
-  .comment-form {
-    background: #f9f9f9;
-    border: 1px solid #e5e5e5;
-    border-radius: 8px;
-    padding: 16px;
+  .comment-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 
-  .form-title {
-    font-size: 15px;
+  .comment-actions-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── Reaction pills ── */
+
+  .comment-reaction {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid #262626;
+    border-radius: 200px;
+    cursor: pointer;
+    background: none;
+    color: inherit;
+  }
+
+  .comment-reaction.active {
+    border-color: #C0C0C0;
+  }
+
+  .comment-reaction-emoji {
+    font-size: 16px;
+    line-height: 1;
     font-weight: 600;
-    margin-bottom: 14px;
-    color: #0f0f0f;
   }
 
-  .form-field {
-    margin-bottom: 12px;
+  .comment-reaction-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1.333;
+  }
+
+  /* ── Emoji picker ── */
+
+  .comment-emoji-wrapper {
     position: relative;
   }
 
-  .form-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: #606060;
-    margin-bottom: 5px;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
+  .comment-emoji-btn {
+    display: flex;
+    align-items: center;
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 200px;
+    line-height: 0;
   }
 
-  .form-input,
-  .form-textarea {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #d0d0d0;
-    border-radius: 6px;
+  .comment-emoji-picker {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    height: 32px;
+    background: #262626;
+    border: 1px solid #444444;
+    border-radius: 200px;
+    z-index: 100;
+    white-space: nowrap;
+  }
+
+  .comment-emoji-picker button {
+    background: none;
+    border: none;
+    cursor: pointer;
     font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    padding: 0;
     font-family: inherit;
-    color: #0f0f0f;
-    background: #fff;
-    transition: border-color 0.15s;
-    resize: vertical;
+    line-height: 1.714;
+    transition: transform 0.1s;
   }
 
-  .form-input:focus,
-  .form-textarea:focus {
-    outline: none;
-    border-color: #065fd4;
-    box-shadow: 0 0 0 2px rgba(6, 95, 212, 0.15);
+  .comment-emoji-picker button:hover {
+    transform: scale(1.3);
   }
 
-  .form-input--error {
-    border-color: #cc0000;
-  }
+  /* ── Reply button ── */
 
-  .form-error {
-    display: block;
-    font-size: 11px;
-    color: #cc0000;
-    margin-top: 3px;
-  }
-
-  .form-counter {
-    display: block;
-    font-size: 11px;
-    color: #909090;
-    text-align: right;
-    margin-top: 3px;
-  }
-
-  .form-submit {
-    display: inline-flex;
+  .comment-reply-btn {
+    display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px 20px;
-    background: #065fd4;
-    color: #fff;
+    gap: 8px;
+    padding: 0 12px;
+    height: 32px;
+    background: none;
     border: none;
-    border-radius: 20px;
+    cursor: pointer;
+    font-family: inherit;
     font-size: 14px;
     font-weight: 600;
-    font-family: inherit;
+    color: #ffffff;
+  }
+
+  .comment-replies-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    background: none;
+    border: none;
     cursor: pointer;
-    transition: background 0.15s;
-  }
-
-  .form-submit:hover {
-    background: #0356c0;
-  }
-
-  .form-submit:active {
-    background: #024dab;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    padding: 0 8px;
   }
 `;
 
-/**
- * Główny komponent sekcji komentarzy.
- * Montowany wewnątrz Shadow DOM — style są wstrzykiwane inline.
- */
-export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactElement {
+export function CommentsSection({ videoId: _videoId }: CommentsSectionProps): React.ReactElement {
   const [comments, setComments] = useState<Comment[]>([]);
 
-  const handleAddComment = (data: Omit<Comment, 'id' | 'createdAt'>) => {
+  const handleAddComment = (content: string) => {
     const newComment: Comment = {
       id: crypto.randomUUID(),
-      author: data.author,
-      content: data.content,
+      author: 'You',
+      content,
       createdAt: new Date(),
+      replyCount: 0,
     };
-    // Nowe komentarze na górze listy
-    setComments((prev) => [newComment, ...prev]);
+    setComments(prev => [newComment, ...prev]);
   };
 
   return (
     <>
-      {/* Style wstrzykiwane do Shadow DOM, nie do <head> strony */}
       <style>{styles}</style>
-
       <div className="comments-wrapper">
         <div className="comments-header">
-          <h2 className="comments-title">Komentarze VideoComments</h2>
-          {comments.length > 0 && (
-            <span className="comments-badge">{comments.length}</span>
-          )}
+          <div className="comments-header-left">
+            <CommentsIcon />
+            <h2 className="comments-title">Comments</h2>
+          </div>
+          <button className="comments-sortby">
+            <SortIcon />
+            <span>Sort by</span>
+          </button>
         </div>
 
+        <CommentForm onSubmit={handleAddComment} />
+
         {comments.length === 0 ? (
-          <p className="comments-empty">
-            Brak komentarzy. Bądź pierwszy!
-          </p>
+          <p className="comments-empty">No comments yet. Be the first!</p>
         ) : (
           <ul className="comments-list">
-            {comments.map((comment) => (
+            {comments.map(comment => (
               <li key={comment.id}>
                 <CommentItem comment={comment} />
               </li>
             ))}
           </ul>
         )}
-
-        <CommentForm onSubmit={handleAddComment} />
       </div>
     </>
   );
