@@ -319,9 +319,9 @@ const styles = `
     left: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 16px;
     padding: 0 12px;
-    height: 32px;
+    height: 40px;
     background: #262626;
     border: 1px solid #444444;
     border-radius: 200px;
@@ -333,12 +333,12 @@ const styles = `
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 20px;
     font-weight: 600;
     color: #ffffff;
     padding: 0;
     font-family: inherit;
-    line-height: 1.714;
+    line-height: 1.2;
     transition: transform 0.1s;
   }
 
