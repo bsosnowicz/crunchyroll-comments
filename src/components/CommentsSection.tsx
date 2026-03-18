@@ -426,6 +426,10 @@ const styles = `
     gap: 8px;
   }
 
+  .reply-form-input {
+    caret-color: #F9E507;
+  }
+
   .reply-cancel-btn {
     display: flex;
     align-items: center;
