@@ -45,7 +45,7 @@ export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
   useEffect(() => {
     if (!pickerOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+      if (pickerRef.current && !e.composedPath().includes(pickerRef.current)) {
         setPickerOpen(false);
       }
     };
