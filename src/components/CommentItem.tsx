@@ -78,15 +78,13 @@ function ReplyForm({ replyToAuthor, onSubmit, onCancel }: ReplyFormProps): React
     <div className="reply-form-row">
       <div className="comment-avatar">Y</div>
       <div className="reply-form-content">
-        <div className="reply-form-input-wrapper">
-          <textarea
-            ref={inputRef}
-            className="comment-form-input reply-form-input"
-            value={content}
-            onChange={handleChange}
-            rows={2}
-          />
-        </div>
+        <textarea
+          ref={inputRef}
+          className="comment-form-input reply-form-input"
+          value={content}
+          onChange={handleChange}
+          rows={2}
+        />
         <div className="comment-form-actions">
           <span className="comment-form-counter">{MAX_CHARS - content.length}</span>
           <button className="reply-cancel-btn" onClick={onCancel}>Cancel</button>
