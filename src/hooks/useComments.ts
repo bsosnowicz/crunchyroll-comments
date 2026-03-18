@@ -48,7 +48,7 @@ export function useComments(videoId: string) {
 
   // Dodaj komentarz
   const addComment = async (authorName: string, content: string) => {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('comments')
       .insert({
         video_id: videoId,
@@ -56,9 +56,16 @@ export function useComments(videoId: string) {
         author_name: authorName,
         content,
         user_id: null, // null = tryb bez logowania (na start)
-      });
+      })
+      .select()
+      .single();
 
     if (error) throw new Error('Nie udało się dodać komentarza');
+
+    // Dodaj od razu lokalnie — nie czekamy na real-time event
+    if (data) {
+      setComments(prev => [data, ...prev]);
+    }
   };
 
   // Usuń komentarz
