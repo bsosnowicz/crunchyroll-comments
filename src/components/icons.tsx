@@ -24,10 +24,10 @@ export const SortIcon = () => (
 );
 
 export const MoreOptionsIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M16 18C17.1046 18 18 17.1046 18 16C18 14.8954 17.1046 14 16 14C14.8954 14 14 14.8954 14 16C14 17.1046 14.8954 18 16 18Z" fill="white"/>
-    <path d="M10 18C11.1046 18 12 17.1046 12 16C12 14.8954 11.1046 14 10 14C8.89543 14 8 14.8954 8 16C8 17.1046 8.89543 18 10 18Z" fill="white"/>
-    <path d="M22 18C23.1046 18 24 17.1046 24 16C24 14.8954 23.1046 14 22 14C20.8954 14 20 14.8954 20 16C20 17.1046 20.8954 18 22 18Z" fill="white"/>
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="2" cy="8" r="2" fill="white"/>
+    <circle cx="8" cy="8" r="2" fill="white"/>
+    <circle cx="14" cy="8" r="2" fill="white"/>
   </svg>
 );
 
