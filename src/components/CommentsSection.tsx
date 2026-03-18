@@ -378,6 +378,90 @@ const styles = `
     color: #ffffff;
     padding: 0 8px;
   }
+
+  /* ── Replies section (thread) ── */
+
+  .comment-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .comment-replies-section {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-left: 48px;
+    margin-top: 16px;
+  }
+
+  .comment-replies-section::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #2a2a2a;
+    border-radius: 2px;
+  }
+
+  .reply-item {
+    display: flex;
+    gap: 16px;
+  }
+
+  /* ── Reply form ── */
+
+  .reply-form-row {
+    display: flex;
+    gap: 16px;
+  }
+
+  .reply-form-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  .reply-cancel-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    height: 32px;
+    background: #313131;
+    border: none;
+    border-radius: 32px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+    cursor: pointer;
+  }
+
+  .reply-submit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    height: 32px;
+    background: #F9E507;
+    border: none;
+    border-radius: 32px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #000000;
+    cursor: pointer;
+  }
+
+  .reply-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
 `;
 
 export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactElement {

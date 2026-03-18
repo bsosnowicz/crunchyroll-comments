@@ -21,6 +21,7 @@ interface CommentItemProps {
 }
 
 const EMOJI_PICKER = ['👍', '👎', '😆', '😏', '😎'];
+const MAX_CHARS = 500;
 
 function formatRelativeTime(date: Date): string {
   const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -40,7 +41,11 @@ export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
   );
   const [pickerOpen, setPickerOpen] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyContent, setReplyContent] = useState('');
+  const [localReplies, setLocalReplies] = useState<Comment[]>([]);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const replyInputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -52,6 +57,19 @@ export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [pickerOpen]);
+
+  useEffect(() => {
+    if (!replyOpen || !replyInputRef.current) return;
+    const mention = `@${comment.author} `;
+    setReplyContent(mention);
+    replyInputRef.current.focus();
+    // Place cursor at end after value is set
+    requestAnimationFrame(() => {
+      if (replyInputRef.current) {
+        replyInputRef.current.setSelectionRange(mention.length, mention.length);
+      }
+    });
+  }, [replyOpen, comment.author]);
 
   const handlePickerSelect = (emoji: string) => {
     setPickerOpen(false);
@@ -84,67 +102,157 @@ export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
     });
   };
 
+  const handleReplyClick = () => {
+    setReplyOpen(true);
+    setShowReplies(true);
+  };
+
+  const handleRepliesToggle = () => {
+    const next = !showReplies;
+    setShowReplies(next);
+    if (!next) setReplyOpen(false);
+  };
+
+  const handleReplySubmit = () => {
+    if (!replyContent.trim()) return;
+    setLocalReplies(prev => [
+      ...prev,
+      {
+        id: `${comment.id}-reply-${Date.now()}`,
+        author: 'You',
+        content: replyContent.trim(),
+        createdAt: new Date(),
+      },
+    ]);
+    setReplyContent('');
+    setReplyOpen(false);
+  };
+
+  const totalReplies = (comment.replyCount ?? 0) + localReplies.length;
   const initials = comment.author.charAt(0).toUpperCase();
+  const showRepliesSection = showReplies || replyOpen;
 
   return (
-    <div className="comment-item">
-      <div className="comment-avatar">{initials}</div>
-      <div className="comment-body">
-        <div className="comment-header">
-          <div className="comment-header-left">
-            <span className="comment-author">{comment.author}</span>
-            <span className="comment-date">{formatRelativeTime(comment.createdAt)}</span>
+    <div className="comment-wrapper">
+      <div className="comment-item">
+        <div className="comment-avatar">{initials}</div>
+        <div className="comment-body">
+          <div className="comment-header">
+            <div className="comment-header-left">
+              <span className="comment-author">{comment.author}</span>
+              <span className="comment-date">{formatRelativeTime(comment.createdAt)}</span>
+            </div>
+            <button className="comment-menu-btn" aria-label="More options">
+              <MoreOptionsIcon />
+            </button>
           </div>
-          <button className="comment-menu-btn" aria-label="More options">
-            <MoreOptionsIcon />
-          </button>
-        </div>
 
-        <p className="comment-content">{comment.content}</p>
+          <p className="comment-content">{comment.content}</p>
 
-        <div className="comment-actions">
-          <div className="comment-actions-left">
-            {reactions.map(r => (
-              <button
-                key={r.emoji}
-                className={`comment-reaction${r.mine ? ' active' : ''}`}
-                onClick={() => toggleReaction(r.emoji)}
-              >
-                <span className="comment-reaction-emoji">{r.emoji}</span>
-                <span className="comment-reaction-count">{r.count}</span>
-              </button>
-            ))}
+          <div className="comment-actions">
+            <div className="comment-actions-left">
+              {reactions.map(r => (
+                <button
+                  key={r.emoji}
+                  className={`comment-reaction${r.mine ? ' active' : ''}`}
+                  onClick={() => toggleReaction(r.emoji)}
+                >
+                  <span className="comment-reaction-emoji">{r.emoji}</span>
+                  <span className="comment-reaction-count">{r.count}</span>
+                </button>
+              ))}
 
-            <div className="comment-emoji-wrapper" ref={pickerRef}>
-              <button
-                className="comment-emoji-btn"
-                onClick={() => setPickerOpen(v => !v)}
-                aria-label="Add reaction"
-              >
-                <EmojiAddIcon active={pickerOpen} />
-              </button>
-              {pickerOpen && (
-                <div className="comment-emoji-picker">
-                  {EMOJI_PICKER.map(emoji => (
-                    <button key={emoji} onClick={() => handlePickerSelect(emoji)}>
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="comment-emoji-wrapper" ref={pickerRef}>
+                <button
+                  className="comment-emoji-btn"
+                  onClick={() => setPickerOpen(v => !v)}
+                  aria-label="Add reaction"
+                >
+                  <EmojiAddIcon active={pickerOpen} />
+                </button>
+                {pickerOpen && (
+                  <div className="comment-emoji-picker">
+                    {EMOJI_PICKER.map(emoji => (
+                      <button key={emoji} onClick={() => handlePickerSelect(emoji)}>
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button className="comment-reply-btn" onClick={handleReplyClick}>Reply</button>
             </div>
 
-            <button className="comment-reply-btn">Reply</button>
+            {totalReplies > 0 && (
+              <button className="comment-replies-btn" onClick={handleRepliesToggle}>
+                <span>{totalReplies} {totalReplies === 1 ? 'reply' : 'replies'}</span>
+                <ChevronDownIcon rotated={showReplies} />
+              </button>
+            )}
           </div>
-
-          {(comment.replyCount ?? 0) > 0 && (
-            <button className="comment-replies-btn" onClick={() => setShowReplies(v => !v)}>
-              <span>{comment.replyCount} {comment.replyCount === 1 ? 'reply' : 'replies'}</span>
-              <ChevronDownIcon rotated={showReplies} />
-            </button>
-          )}
         </div>
       </div>
+
+      {showRepliesSection && (
+        <div className="comment-replies-section">
+          {replyOpen && (
+            <div className="reply-form-row">
+              <div className="comment-avatar">Y</div>
+              <div className="reply-form-content">
+                <textarea
+                  ref={replyInputRef}
+                  className="comment-form-input"
+                  value={replyContent}
+                  onChange={e => setReplyContent(e.target.value.slice(0, MAX_CHARS))}
+                  rows={2}
+                />
+                <div className="comment-form-actions">
+                  <span className="comment-form-counter">{MAX_CHARS - replyContent.length}</span>
+                  <button className="reply-cancel-btn" onClick={() => setReplyOpen(false)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="reply-submit-btn"
+                    onClick={handleReplySubmit}
+                    disabled={!replyContent.trim()}
+                  >
+                    Reply
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showReplies && localReplies.map(reply => (
+            <div key={reply.id} className="reply-item">
+              <div className="comment-avatar">{reply.author.charAt(0).toUpperCase()}</div>
+              <div className="comment-body">
+                <div className="comment-header">
+                  <div className="comment-header-left">
+                    <span className="comment-author">{reply.author}</span>
+                    <span className="comment-date">{formatRelativeTime(reply.createdAt)}</span>
+                  </div>
+                  <button className="comment-menu-btn" aria-label="More options">
+                    <MoreOptionsIcon />
+                  </button>
+                </div>
+                <p className="comment-content">{reply.content}</p>
+                <div className="comment-actions">
+                  <div className="comment-actions-left">
+                    <div className="comment-emoji-wrapper">
+                      <button className="comment-emoji-btn" aria-label="Add reaction">
+                        <EmojiAddIcon active={false} />
+                      </button>
+                    </div>
+                    <button className="comment-reply-btn">Reply</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
