@@ -1,17 +1,41 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
 import { CommentsIcon, SortIcon } from './icons';
 import type { Comment as UIComment } from './CommentItem';
 import { useComments } from '../hooks/useComments';
-import type { Comment } from '../lib/supabase';
+import type { CommentWithData } from '../hooks/useComments';
+import { useAuth } from '../hooks/useAuth';
+import type { User } from '@supabase/supabase-js';
 
-function toUIComment(row: Comment): UIComment {
+function computeIsOwner(
+  itemUserId: string | null,
+  itemSessionId: string | null,
+  user: User | null,
+  sessionId: string
+): boolean {
+  if (user) return itemUserId === user.id;
+  return itemSessionId !== null && itemSessionId === sessionId;
+}
+
+function toUIComment(row: CommentWithData, user: User | null, sessionId: string): UIComment {
   return {
     id: row.id,
     author: row.author_name,
     content: row.content,
     createdAt: new Date(row.created_at),
+    reactions: row.reactions,
+    isEdited: row.is_edited ?? false,
+    isOwner: computeIsOwner(row.user_id, row.session_id ?? null, user, sessionId),
+    replies: row.replies.map(r => ({
+      id: r.id,
+      author: r.author_name,
+      content: r.content,
+      createdAt: new Date(r.created_at),
+      reactions: r.reactions,
+      isEdited: r.is_edited ?? false,
+      isOwner: computeIsOwner(r.user_id, r.session_id ?? null, user, sessionId),
+    })),
   };
 }
 
@@ -63,6 +87,10 @@ const styles = `
     line-height: 1.362;
   }
 
+  .comments-sort-wrapper {
+    position: relative;
+  }
+
   .comments-sortby {
     display: flex;
     align-items: center;
@@ -75,6 +103,42 @@ const styles = `
     font-size: 14px;
     font-weight: 600;
     line-height: 1.714;
+  }
+
+  .comments-sort-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: #1a1a1a;
+    border: 1px solid #333333;
+    border-radius: 8px;
+    z-index: 100;
+    min-width: 160px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  .comments-sort-item {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;
+    text-align: left;
+    line-height: 1.4;
+  }
+
+  .comments-sort-item:hover {
+    background: #262626;
+  }
+
+  .comments-sort-item.active {
+    color: #F9E507;
   }
 
   /* ── Comment Form ── */
@@ -466,13 +530,228 @@ const styles = `
     opacity: 0.5;
     cursor: default;
   }
+
+  /* ── Auth panel ── */
+
+  .auth-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 20px 24px;
+  }
+
+  .auth-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #262626;
+  }
+
+  .auth-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #989898;
+    cursor: pointer;
+  }
+
+  .auth-tab.active {
+    color: #ffffff;
+    border-bottom-color: #F9E507;
+  }
+
+  .auth-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .auth-input {
+    width: 100%;
+    background: #1A1A1A;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    color: #ffffff;
+    outline: none;
+  }
+
+  .auth-input::placeholder {
+    color: #989898;
+  }
+
+  .auth-input:focus {
+    outline: 1px solid #444444;
+  }
+
+  .auth-error {
+    font-size: 13px;
+    color: #ff5555;
+    margin: 0;
+  }
+
+  .auth-info {
+    font-size: 13px;
+    color: #4caf50;
+    margin: 0;
+  }
+
+  .auth-submit-btn {
+    align-self: flex-end;
+    padding: 0 20px;
+    height: 36px;
+    background: #F9E507;
+    border: none;
+    border-radius: 32px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #000000;
+    cursor: pointer;
+  }
+
+  .auth-submit-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .auth-user-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px 16px;
+  }
+
+  .auth-user-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  .auth-signout-btn {
+    background: none;
+    border: 1px solid #444444;
+    border-radius: 32px;
+    padding: 0 12px;
+    height: 28px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: #989898;
+    cursor: pointer;
+  }
+
+  .auth-signout-btn:hover {
+    color: #ffffff;
+    border-color: #666666;
+  }
+
+  /* ── Comment dropdown menu ── */
+
+  .comment-menu-wrapper {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .comment-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: #1a1a1a;
+    border: 1px solid #333333;
+    border-radius: 8px;
+    z-index: 100;
+    min-width: 140px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  }
+
+  .comment-dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    color: #ffffff;
+    text-align: left;
+    line-height: 1.4;
+  }
+
+  .comment-dropdown-item:hover {
+    background: #262626;
+  }
+
+  .comment-dropdown-item--danger {
+    color: #ff5555;
+  }
+
+  /* ── Edited label & edit form ── */
+
+  .comment-edited-label {
+    font-size: 12px;
+    color: #989898;
+    font-style: italic;
+  }
+
+  .edit-form-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    width: 100%;
+  }
 `;
 
+type SortOrder = 'newest' | 'popular';
+
+const SORT_LABELS: Record<SortOrder, string> = {
+  newest: 'Newest',
+  popular: 'Most popular',
+};
+
+function totalReactions(comment: CommentWithData): number {
+  return comment.reactions.reduce((s, r) => s + r.count, 0);
+}
+
 export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactElement {
-  const { comments, loading, error, addComment } = useComments(videoId);
+  const { user, displayName } = useAuth();
+  const { comments, loading, error, sessionId, addComment, deleteComment, editComment, addReply, editReply, deleteReply, toggleReaction } = useComments(videoId, user?.id ?? null);
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
+  const [sortOpen, setSortOpen] = useState(false);
+  const sortRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sortOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (sortRef.current && !e.composedPath().includes(sortRef.current)) setSortOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [sortOpen]);
+
+  const sortedComments = [...comments].sort((a, b) => {
+    if (sortOrder === 'popular') {
+      const reactionsDiff = totalReactions(b) - totalReactions(a);
+      if (reactionsDiff !== 0) return reactionsDiff;
+      return b.replies.length - a.replies.length;
+    }
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   const handleAddComment = async (content: string) => {
-    await addComment('You', content);
+    if (!user) return;
+    await addComment(displayName, content, user.id);
   };
 
   return (
@@ -484,25 +763,52 @@ export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactE
             <CommentsIcon />
             <h2 className="comments-title">Comments</h2>
           </div>
-          <button className="comments-sortby">
-            <SortIcon />
-            <span>Sort by</span>
-          </button>
+          <div ref={sortRef} className="comments-sort-wrapper">
+            <button className="comments-sortby" onClick={() => setSortOpen(v => !v)}>
+              <SortIcon />
+              <span>{SORT_LABELS[sortOrder]}</span>
+            </button>
+            {sortOpen && (
+              <div className="comments-sort-dropdown">
+                {(['newest', 'popular'] as SortOrder[]).map(option => (
+                  <button
+                    key={option}
+                    className={`comments-sort-item${sortOrder === option ? ' active' : ''}`}
+                    onClick={() => { setSortOrder(option); setSortOpen(false); }}
+                  >
+                    {SORT_LABELS[option]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <CommentForm onSubmit={handleAddComment} />
+        {user
+          ? <CommentForm onSubmit={handleAddComment} />
+          : <p className="comments-login-prompt">Sign in via the extension popup to comment.</p>
+        }
 
         {loading && <p className="comments-empty">Ładowanie komentarzy...</p>}
         {error && <p className="comments-empty">{error}</p>}
 
-        {!loading && !error && comments.length === 0 && (
+        {!loading && !error && sortedComments.length === 0 && (
           <p className="comments-empty">No comments yet. Be the first!</p>
         )}
-        {!loading && !error && comments.length > 0 && (
+        {!loading && !error && sortedComments.length > 0 && (
           <ul className="comments-list">
-            {comments.map(comment => (
+            {sortedComments.map(comment => (
               <li key={comment.id}>
-                <CommentItem comment={toUIComment(comment)} />
+                <CommentItem
+                  comment={toUIComment(comment, user, sessionId)}
+                  canInteract={!!user}
+                  onAddReply={async (content) => { if (user) await addReply(comment.id, displayName, content, user.id); }}
+                  onToggleReaction={async (emoji, replyId) => { if (user) await toggleReaction(emoji, comment.id, replyId); }}
+                  onEdit={(content) => editComment(comment.id, content)}
+                  onDelete={() => deleteComment(comment.id)}
+                  onEditReply={(replyId, content) => editReply(replyId, content)}
+                  onDeleteReply={(replyId) => deleteReply(replyId)}
+                />
               </li>
             ))}
           </ul>

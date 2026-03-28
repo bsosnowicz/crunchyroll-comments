@@ -1,23 +1,42 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { EmojiAddIcon, MoreOptionsIcon, ChevronDownIcon } from './icons';
 
-export interface Comment {
-  id: string;
-  author: string;
-  content: string;
-  createdAt: Date;
-  reactions?: { emoji: string; count: number }[];
-  replyCount?: number;
-}
-
-interface Reaction {
+export interface UIReaction {
   emoji: string;
   count: number;
   mine: boolean;
 }
 
+export interface UIReply {
+  id: string;
+  author: string;
+  content: string;
+  createdAt: Date;
+  reactions: UIReaction[];
+  isEdited: boolean;
+  isOwner: boolean;
+}
+
+export interface Comment {
+  id: string;
+  author: string;
+  content: string;
+  createdAt: Date;
+  reactions: UIReaction[];
+  replies: UIReply[];
+  isEdited: boolean;
+  isOwner: boolean;
+}
+
 interface CommentItemProps {
   comment: Comment;
+  canInteract: boolean;
+  onAddReply: (content: string) => Promise<void>;
+  onToggleReaction: (emoji: string, replyId?: string) => Promise<void>;
+  onEdit: (content: string) => Promise<void>;
+  onDelete: () => Promise<void>;
+  onEditReply: (replyId: string, content: string) => Promise<void>;
+  onDeleteReply: (replyId: string) => Promise<void>;
 }
 
 const EMOJI_PICKER = ['👍', '👎', '😆', '😏', '😎'];
@@ -33,6 +52,93 @@ function formatRelativeTime(date: Date): string {
   const diffDay = Math.floor(diffHour / 24);
   if (diffDay < 7) return `${diffDay}d ago`;
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
+}
+
+// ── Comment Menu (3-dots dropdown) ────────────────────────────────────────────
+
+interface CommentMenuProps {
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function CommentMenu({ onEdit, onDelete }: CommentMenuProps): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !e.composedPath().includes(ref.current)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="comment-menu-wrapper">
+      <button className="comment-menu-btn" onClick={() => setOpen(v => !v)} aria-label="More options">
+        <MoreOptionsIcon />
+      </button>
+      {open && (
+        <div className="comment-dropdown">
+          <button
+            className="comment-dropdown-item"
+            onClick={() => { setOpen(false); onEdit(); }}
+          >
+            Edit
+          </button>
+          <button
+            className="comment-dropdown-item comment-dropdown-item--danger"
+            onClick={() => { setOpen(false); onDelete(); }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Edit Form ──────────────────────────────────────────────────────────────────
+
+interface EditFormProps {
+  initialContent: string;
+  onSave: (content: string) => void;
+  onCancel: () => void;
+}
+
+function EditForm({ initialContent, onSave, onCancel }: EditFormProps): React.ReactElement {
+  const [content, setContent] = useState(initialContent);
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    ref.current?.focus();
+    const len = initialContent.length;
+    ref.current?.setSelectionRange(len, len);
+  }, []);
+
+  return (
+    <div className="edit-form-wrapper">
+      <textarea
+        ref={ref}
+        className="comment-form-input"
+        value={content}
+        onChange={(e) => setContent(e.target.value.slice(0, MAX_CHARS))}
+        rows={3}
+      />
+      <div className="comment-form-actions">
+        <span className="comment-form-counter">{MAX_CHARS - content.length}</span>
+        <button className="reply-cancel-btn" onClick={onCancel}>Cancel</button>
+        <button
+          className="reply-submit-btn"
+          disabled={!content.trim() || content.trim() === initialContent.trim()}
+          onClick={() => onSave(content.trim())}
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ── Reply Form ─────────────────────────────────────────────────────────────────
@@ -59,7 +165,6 @@ function ReplyForm({ replyToAuthor, onSubmit, onCancel }: ReplyFormProps): React
   }, [replyToAuthor]);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    // Don't allow deleting the @mention prefix
     const val = e.target.value;
     if (!val.startsWith(mention)) {
       setContent(mention);
@@ -104,17 +209,20 @@ function ReplyForm({ replyToAuthor, onSubmit, onCancel }: ReplyFormProps): React
 // ── Reply Item ─────────────────────────────────────────────────────────────────
 
 interface ReplyItemProps {
-  reply: Comment;
+  reply: UIReply;
+  canInteract: boolean;
   onReply: () => void;
+  onToggleReaction: (emoji: string) => void;
+  onEdit: (content: string) => Promise<void>;
+  onDelete: () => Promise<void>;
 }
 
-function ReplyItem({ reply, onReply }: ReplyItemProps): React.ReactElement {
-  const [reactions, setReactions] = useState<Reaction[]>(
-    (reply.reactions ?? []).map(r => ({ ...r, mine: false }))
-  );
+function ReplyItem({ reply, canInteract, onReply, onToggleReaction, onEdit, onDelete }: ReplyItemProps): React.ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const initials = reply.author.charAt(0).toUpperCase();
+  const isOwner = reply.isOwner;
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -129,33 +237,12 @@ function ReplyItem({ reply, onReply }: ReplyItemProps): React.ReactElement {
 
   const handlePickerSelect = (emoji: string) => {
     setPickerOpen(false);
-    setReactions(prev => {
-      const existing = prev.find(r => r.emoji === emoji);
-      if (existing) {
-        if (existing.mine) {
-          const updated = { ...existing, count: existing.count - 1, mine: false };
-          return updated.count === 0
-            ? prev.filter(r => r.emoji !== emoji)
-            : prev.map(r => r.emoji === emoji ? updated : r);
-        }
-        return prev.map(r => r.emoji === emoji ? { ...r, count: r.count + 1, mine: true } : r);
-      }
-      return [...prev, { emoji, count: 1, mine: true }];
-    });
+    onToggleReaction(emoji);
   };
 
-  const toggleReaction = (emoji: string) => {
-    setReactions(prev => {
-      const existing = prev.find(r => r.emoji === emoji);
-      if (!existing) return prev;
-      if (existing.mine) {
-        const updated = { ...existing, count: existing.count - 1, mine: false };
-        return updated.count === 0
-          ? prev.filter(r => r.emoji !== emoji)
-          : prev.map(r => r.emoji === emoji ? updated : r);
-      }
-      return prev.map(r => r.emoji === emoji ? { ...r, count: r.count + 1, mine: true } : r);
-    });
+  const handleSaveEdit = async (content: string) => {
+    await onEdit(content);
+    setEditMode(false);
   };
 
   return (
@@ -166,45 +253,66 @@ function ReplyItem({ reply, onReply }: ReplyItemProps): React.ReactElement {
           <div className="comment-header-left">
             <span className="comment-author">{reply.author}</span>
             <span className="comment-date">{formatRelativeTime(reply.createdAt)}</span>
+            {reply.isEdited && <span className="comment-edited-label">(edited)</span>}
           </div>
-          <button className="comment-menu-btn" aria-label="More options">
-            <MoreOptionsIcon />
-          </button>
+          {isOwner && (
+            <CommentMenu
+              onEdit={() => setEditMode(true)}
+              onDelete={onDelete}
+            />
+          )}
         </div>
-        <p className="comment-content">{reply.content}</p>
-        <div className="comment-actions">
-          <div className="comment-actions-left">
-            {reactions.map(r => (
-              <button
-                key={r.emoji}
-                className={`comment-reaction${r.mine ? ' active' : ''}`}
-                onClick={() => toggleReaction(r.emoji)}
-              >
-                <span className="comment-reaction-emoji">{r.emoji}</span>
-                <span className="comment-reaction-count">{r.count}</span>
-              </button>
-            ))}
-            <div className="comment-emoji-wrapper" ref={pickerRef}>
-              <button
-                className="comment-emoji-btn"
-                onClick={() => setPickerOpen(v => !v)}
-                aria-label="Add reaction"
-              >
-                <EmojiAddIcon active={pickerOpen} />
-              </button>
-              {pickerOpen && (
-                <div className="comment-emoji-picker">
-                  {EMOJI_PICKER.map(emoji => (
-                    <button key={emoji} onClick={() => handlePickerSelect(emoji)}>
-                      {emoji}
-                    </button>
-                  ))}
+
+        {editMode ? (
+          <EditForm
+            initialContent={reply.content}
+            onSave={handleSaveEdit}
+            onCancel={() => setEditMode(false)}
+          />
+        ) : (
+          <p className="comment-content">{reply.content}</p>
+        )}
+
+        {!editMode && (
+          <div className="comment-actions">
+            <div className="comment-actions-left">
+              {reply.reactions.map(r => (
+                <button
+                  key={r.emoji}
+                  className={`comment-reaction${r.mine ? ' active' : ''}`}
+                  onClick={canInteract ? () => onToggleReaction(r.emoji) : undefined}
+                  style={canInteract ? undefined : { cursor: 'default' }}
+                >
+                  <span className="comment-reaction-emoji">{r.emoji}</span>
+                  <span className="comment-reaction-count">{r.count}</span>
+                </button>
+              ))}
+              {canInteract && (
+                <div className="comment-emoji-wrapper" ref={pickerRef}>
+                  <button
+                    className="comment-emoji-btn"
+                    onClick={() => setPickerOpen(v => !v)}
+                    aria-label="Add reaction"
+                  >
+                    <EmojiAddIcon active={pickerOpen} />
+                  </button>
+                  {pickerOpen && (
+                    <div className="comment-emoji-picker">
+                      {EMOJI_PICKER.map(emoji => (
+                        <button key={emoji} onClick={() => handlePickerSelect(emoji)}>
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
+              {canInteract && (
+                <button className="comment-reply-btn" onClick={onReply}>Reply</button>
+              )}
             </div>
-            <button className="comment-reply-btn" onClick={onReply}>Reply</button>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -212,16 +320,13 @@ function ReplyItem({ reply, onReply }: ReplyItemProps): React.ReactElement {
 
 // ── Comment Item ───────────────────────────────────────────────────────────────
 
-export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
-  const [reactions, setReactions] = useState<Reaction[]>(
-    (comment.reactions ?? []).map(r => ({ ...r, mine: false }))
-  );
+export function CommentItem({ comment, canInteract, onAddReply, onToggleReaction, onEdit, onDelete, onEditReply, onDeleteReply }: CommentItemProps): React.ReactElement {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [showReplies, setShowReplies] = useState(false);
-  // replyingTo: null = closed, 'main' = replying to main comment, id = replying to specific reply
   const [replyingTo, setReplyingTo] = useState<{ id: string; author: string } | null>(null);
-  const [localReplies, setLocalReplies] = useState<Comment[]>([]);
+  const [editMode, setEditMode] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const isOwner = comment.isOwner;
 
   useEffect(() => {
     if (!pickerOpen) return;
@@ -236,33 +341,7 @@ export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
 
   const handlePickerSelect = (emoji: string) => {
     setPickerOpen(false);
-    setReactions(prev => {
-      const existing = prev.find(r => r.emoji === emoji);
-      if (existing) {
-        if (existing.mine) {
-          const updated = { ...existing, count: existing.count - 1, mine: false };
-          return updated.count === 0
-            ? prev.filter(r => r.emoji !== emoji)
-            : prev.map(r => r.emoji === emoji ? updated : r);
-        }
-        return prev.map(r => r.emoji === emoji ? { ...r, count: r.count + 1, mine: true } : r);
-      }
-      return [...prev, { emoji, count: 1, mine: true }];
-    });
-  };
-
-  const toggleReaction = (emoji: string) => {
-    setReactions(prev => {
-      const existing = prev.find(r => r.emoji === emoji);
-      if (!existing) return prev;
-      if (existing.mine) {
-        const updated = { ...existing, count: existing.count - 1, mine: false };
-        return updated.count === 0
-          ? prev.filter(r => r.emoji !== emoji)
-          : prev.map(r => r.emoji === emoji ? updated : r);
-      }
-      return prev.map(r => r.emoji === emoji ? { ...r, count: r.count + 1, mine: true } : r);
-    });
+    onToggleReaction(emoji);
   };
 
   const handleReplyToMain = () => {
@@ -270,7 +349,7 @@ export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
     setShowReplies(true);
   };
 
-  const handleReplyToReply = (reply: Comment) => {
+  const handleReplyToReply = (reply: UIReply) => {
     setReplyingTo({ id: reply.id, author: reply.author });
     setShowReplies(true);
   };
@@ -282,19 +361,17 @@ export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
   };
 
   const handleReplySubmit = (content: string) => {
-    setLocalReplies(prev => [
-      ...prev,
-      {
-        id: `${comment.id}-reply-${Date.now()}`,
-        author: 'You',
-        content,
-        createdAt: new Date(),
-      },
-    ]);
+    onAddReply(content);
     setReplyingTo(null);
+    setShowReplies(true);
   };
 
-  const totalReplies = (comment.replyCount ?? 0) + localReplies.length;
+  const handleSaveEdit = async (content: string) => {
+    await onEdit(content);
+    setEditMode(false);
+  };
+
+  const totalReplies = comment.replies.length;
   const initials = comment.author.charAt(0).toUpperCase();
   const showRepliesSection = showReplies || replyingTo !== null;
 
@@ -307,56 +384,75 @@ export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
             <div className="comment-header-left">
               <span className="comment-author">{comment.author}</span>
               <span className="comment-date">{formatRelativeTime(comment.createdAt)}</span>
+              {comment.isEdited && <span className="comment-edited-label">(edited)</span>}
             </div>
-            <button className="comment-menu-btn" aria-label="More options">
-              <MoreOptionsIcon />
-            </button>
+            {isOwner && (
+              <CommentMenu
+                onEdit={() => setEditMode(true)}
+                onDelete={onDelete}
+              />
+            )}
           </div>
 
-          <p className="comment-content">{comment.content}</p>
+          {editMode ? (
+            <EditForm
+              initialContent={comment.content}
+              onSave={handleSaveEdit}
+              onCancel={() => setEditMode(false)}
+            />
+          ) : (
+            <p className="comment-content">{comment.content}</p>
+          )}
 
-          <div className="comment-actions">
-            <div className="comment-actions-left">
-              {reactions.map(r => (
-                <button
-                  key={r.emoji}
-                  className={`comment-reaction${r.mine ? ' active' : ''}`}
-                  onClick={() => toggleReaction(r.emoji)}
-                >
-                  <span className="comment-reaction-emoji">{r.emoji}</span>
-                  <span className="comment-reaction-count">{r.count}</span>
-                </button>
-              ))}
+          {!editMode && (
+            <div className="comment-actions">
+              <div className="comment-actions-left">
+                {comment.reactions.map(r => (
+                  <button
+                    key={r.emoji}
+                    className={`comment-reaction${r.mine ? ' active' : ''}`}
+                    onClick={canInteract ? () => onToggleReaction(r.emoji) : undefined}
+                    style={canInteract ? undefined : { cursor: 'default' }}
+                  >
+                    <span className="comment-reaction-emoji">{r.emoji}</span>
+                    <span className="comment-reaction-count">{r.count}</span>
+                  </button>
+                ))}
 
-              <div className="comment-emoji-wrapper" ref={pickerRef}>
-                <button
-                  className="comment-emoji-btn"
-                  onClick={() => setPickerOpen(v => !v)}
-                  aria-label="Add reaction"
-                >
-                  <EmojiAddIcon active={pickerOpen} />
-                </button>
-                {pickerOpen && (
-                  <div className="comment-emoji-picker">
-                    {EMOJI_PICKER.map(emoji => (
-                      <button key={emoji} onClick={() => handlePickerSelect(emoji)}>
-                        {emoji}
-                      </button>
-                    ))}
+                {canInteract && (
+                  <div className="comment-emoji-wrapper" ref={pickerRef}>
+                    <button
+                      className="comment-emoji-btn"
+                      onClick={() => setPickerOpen(v => !v)}
+                      aria-label="Add reaction"
+                    >
+                      <EmojiAddIcon active={pickerOpen} />
+                    </button>
+                    {pickerOpen && (
+                      <div className="comment-emoji-picker">
+                        {EMOJI_PICKER.map(emoji => (
+                          <button key={emoji} onClick={() => handlePickerSelect(emoji)}>
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                )}
+
+                {canInteract && (
+                  <button className="comment-reply-btn" onClick={handleReplyToMain}>Reply</button>
                 )}
               </div>
 
-              <button className="comment-reply-btn" onClick={handleReplyToMain}>Reply</button>
+              {totalReplies > 0 && (
+                <button className="comment-replies-btn" onClick={handleRepliesToggle}>
+                  <span>{totalReplies} {totalReplies === 1 ? 'reply' : 'replies'}</span>
+                  <ChevronDownIcon rotated={showReplies} />
+                </button>
+              )}
             </div>
-
-            {totalReplies > 0 && (
-              <button className="comment-replies-btn" onClick={handleRepliesToggle}>
-                <span>{totalReplies} {totalReplies === 1 ? 'reply' : 'replies'}</span>
-                <ChevronDownIcon rotated={showReplies} />
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
@@ -370,11 +466,15 @@ export function CommentItem({ comment }: CommentItemProps): React.ReactElement {
             />
           )}
 
-          {showReplies && localReplies.map(reply => (
+          {showReplies && comment.replies.map(reply => (
             <React.Fragment key={reply.id}>
               <ReplyItem
                 reply={reply}
+                canInteract={canInteract}
                 onReply={() => handleReplyToReply(reply)}
+                onToggleReaction={(emoji) => onToggleReaction(emoji, reply.id)}
+                onEdit={(content) => onEditReply(reply.id, content)}
+                onDelete={() => onDeleteReply(reply.id)}
               />
               {replyingTo?.id === reply.id && (
                 <ReplyForm
