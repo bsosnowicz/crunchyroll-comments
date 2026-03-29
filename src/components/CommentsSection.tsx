@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
+import { AuthPanel } from './AuthPanel';
 import { CommentsIcon, SortIcon } from './icons';
 import type { Comment as UIComment } from './CommentItem';
 import { useComments } from '../hooks/useComments';
@@ -531,6 +532,66 @@ const styles = `
     cursor: default;
   }
 
+  /* ── Logged-out banner ── */
+
+  .logged-out-banner-wrapper {
+    padding: 0 20px;
+    margin-bottom: 24px;
+  }
+
+  .logged-out-banner {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: #181818;
+    border: 1px solid #262626;
+    border-radius: 16px;
+  }
+
+  .logged-out-banner-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .logged-out-banner-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #ffffff;
+    line-height: 1.362;
+  }
+
+  .logged-out-banner-subtitle {
+    font-size: 14px;
+    font-weight: 400;
+    color: #C0C0C0;
+    line-height: 1.429;
+  }
+
+  .logged-out-signup-btn {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    height: 40px;
+    background: #F9E507;
+    border: none;
+    border-radius: 32px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #000000;
+    cursor: pointer;
+  }
+
+  .logged-out-signup-btn:hover {
+    background: #e6d400;
+  }
+
   /* ── Auth panel ── */
 
   .auth-panel {
@@ -725,10 +786,11 @@ function totalReactions(comment: CommentWithData): number {
 }
 
 export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactElement {
-  const { user, displayName } = useAuth();
+  const { user, displayName, signIn, signUp } = useAuth();
   const { comments, loading, error, sessionId, addComment, deleteComment, editComment, addReply, editReply, deleteReply, toggleReaction } = useComments(videoId, user?.id ?? null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [sortOpen, setSortOpen] = useState(false);
+  const [showAuthPanel, setShowAuthPanel] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -784,10 +846,23 @@ export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactE
           </div>
         </div>
 
-        {user
-          ? <CommentForm onSubmit={handleAddComment} />
-          : <p className="comments-login-prompt">Sign in via the extension popup to comment.</p>
-        }
+        {user ? (
+          <CommentForm onSubmit={handleAddComment} />
+        ) : showAuthPanel ? (
+          <AuthPanel onSignIn={signIn} onSignUp={signUp} defaultTab="register" />
+        ) : (
+          <div className="logged-out-banner-wrapper">
+            <div className="logged-out-banner">
+              <div className="logged-out-banner-text">
+                <span className="logged-out-banner-title">Join the community</span>
+                <span className="logged-out-banner-subtitle">Do you want to comment or leave reaction?</span>
+              </div>
+              <button className="logged-out-signup-btn" onClick={() => setShowAuthPanel(true)}>
+                Sign up
+              </button>
+            </div>
+          </div>
+        )}
 
         {loading && <p className="comments-empty">Ładowanie komentarzy...</p>}
         {error && <p className="comments-empty">{error}</p>}

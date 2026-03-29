@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 interface AuthPanelProps {
   onSignIn: (email: string, password: string) => Promise<void>;
   onSignUp: (email: string, password: string, username: string) => Promise<void>;
+  defaultTab?: 'login' | 'register';
 }
 
-export function AuthPanel({ onSignIn, onSignUp }: AuthPanelProps): React.ReactElement {
-  const [tab, setTab] = useState<'login' | 'register'>('login');
+export function AuthPanel({ onSignIn, onSignUp, defaultTab = 'login' }: AuthPanelProps): React.ReactElement {
+  const [tab, setTab] = useState<'login' | 'register'>(defaultTab);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
