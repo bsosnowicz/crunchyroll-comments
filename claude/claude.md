@@ -151,16 +151,27 @@ interface CommentItemProps {
 
 ### Komentarze w kodzie
 
-Komentarze piszemy **po polsku**. Dokumentuj "dlaczego", nie "co":
+Komentarze piszemy **po angielsku**, jak senior developer. Dokumentuj "dlaczego", nie "co".
+Zakładaj, że czytelnik rozumie język — tłumacz intencje i nieoczywiste decyzje, nie składnię.
 
 ```ts
-// ✅ Dobrze — tłumaczy zamiar
-// crunchyroll zmienia URL bez przeładowania strony (SPA), więc nasłuchujemy na popstate
+// ✅ Dobrze — wyjaśnia nieoczywistą decyzję
+// Crunchyroll navigates via pushState without a full page reload (SPA),
+// so we can't rely on DOMContentLoaded — listen for popstate instead.
 window.addEventListener('popstate', handleNavigation);
 
+// ✅ Dobrze — ostrzega przed pułapką
+// attachShadow must be called before appending mountPoint, otherwise
+// styles injected into the shadow root won't apply to existing children.
+const shadowRoot = hostContainer.attachShadow({ mode: 'open' });
+
 // ❌ Źle — opisuje oczywistość
-// Dodajemy event listener
+// Add event listener
 window.addEventListener('popstate', handleNavigation);
+
+// ❌ Źle — restates the code
+// Set injected attribute to true
+target.setAttribute(INJECTED_ATTR, 'true');
 ```
 
 ---
@@ -245,6 +256,61 @@ Przed wprowadzeniem zmian Claude Code powinien sprawdzić:
 - [ ] Czy kod jest w pełni otypowany (zero `any`)?
 - [ ] Czy manifest.json ma odpowiednie `host_permissions` dla nowej domeny?
 - [ ] Czy komunikacja między content script a background używa `chrome.runtime.sendMessage`?
+
+---
+
+## Code Maintenance
+
+### Commenting philosophy
+
+Write comments like a senior engineer reviewing a PR — sparse, high-signal, and in **English**.
+Every comment should answer one of these questions:
+- **Why** was this approach chosen over the obvious alternative?
+- **What constraint** makes this non-trivial?
+- **What breaks** if you touch this without understanding the context?
+
+If the code reads clearly on its own, don't comment it.
+
+```ts
+// ✅ Explains the "why" and the risk
+// We strip the trailing slash before comparison because Crunchyroll sometimes
+// returns URLs with and without it — treating them as different videos causes
+// duplicate injection and double-mounted React trees.
+const normalizedUrl = url.replace(/\/$/, '');
+
+// ✅ Documents an external constraint
+// chrome.storage.local has a 5MB quota — avoid storing full comment bodies,
+// store only IDs and fetch the rest on demand.
+await chrome.storage.local.set({ watchedIds });
+
+// ❌ Noise — says nothing the code doesn't already say
+// Loop through comments
+for (const comment of comments) { ... }
+```
+
+### When to refactor vs. leave it alone
+
+- **Refactor** when you touch a file for another reason and the surrounding code is misleading or fragile.
+- **Don't refactor** speculatively. If it works and isn't being changed, leave it.
+- Prefer small, focused PRs over large cleanups mixed with feature work.
+
+### Handling Crunchyroll DOM changes
+
+Crunchyroll ships CSS class changes without notice. When a selector breaks:
+1. Find the element by its structural role or a stable attribute (`id`, `data-*`, ARIA role), not by class.
+2. Add a comment explaining why the selector looks "weird" if it's not self-evident.
+3. If you have to fall back on a class, document it as fragile:
+
+```ts
+// FRAGILE: Crunchyroll has no stable selector for this panel — using class as last resort.
+// If the UI breaks, check for a renamed class in DevTools.
+const panel = document.querySelector('.erc-d-1234');
+```
+
+### Dead code policy
+
+- Remove unused code immediately — don't comment it out and don't leave `// TODO: remove this`.
+- If removal is risky (e.g., touches the injection lifecycle), open a task instead of leaving commented-out code in the file.
 
 ---
 
