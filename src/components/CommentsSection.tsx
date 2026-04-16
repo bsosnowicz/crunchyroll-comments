@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { CommentItem } from './CommentItem';
 import { CommentForm } from './CommentForm';
-import { AuthPanel } from './AuthPanel';
 import { CommentsIcon, SortIcon } from './icons';
 import type { Comment as UIComment } from './CommentItem';
 import { useComments } from '../hooks/useComments';
@@ -71,7 +70,7 @@ const styles = `
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0;
     margin-bottom: 24px;
   }
 
@@ -139,7 +138,7 @@ const styles = `
   }
 
   .comments-sort-item.active {
-    color: #F9E507;
+    color: #EEE041;
   }
 
   /* ── Comment Form ── */
@@ -148,7 +147,7 @@ const styles = `
     display: flex;
     align-items: flex-start;
     gap: 16px;
-    padding: 0 20px;
+    padding: 0;
     margin-bottom: 24px;
   }
 
@@ -211,30 +210,55 @@ const styles = `
     line-height: 1.714;
   }
 
-  .comment-form-submit {
-    display: flex;
+  /* ── Button ── */
+
+  .btn {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 0 12px;
-    height: 32px;
-    background: #F9E507;
     border: none;
     border-radius: 32px;
     font-family: inherit;
     font-size: 14px;
     font-weight: 600;
     color: #000000;
+    background: #EEE041;
     cursor: pointer;
+    line-height: 1.714;
   }
 
-  .comment-form-submit:hover {
-    background: #e6d400;
+  .btn:hover {
+    background: #E9D126;
   }
 
-  .comment-form-submit:disabled {
+  .btn:active {
+    background: #D6A305;
+  }
+
+  .btn:focus-visible {
+    outline: 3px solid #ffffff;
+    outline-offset: 0;
+  }
+
+  .btn:disabled {
     opacity: 0.5;
     cursor: default;
+  }
+
+  .btn--sm {
+    padding: 0 12px;
+    height: 32px;
+  }
+
+  .btn--md {
+    padding: 0 12px;
+    height: 40px;
+  }
+
+  .btn--lg {
+    padding: 0 16px;
+    height: 56px;
   }
 
   /* ── Comments list ── */
@@ -243,7 +267,7 @@ const styles = `
     display: flex;
     flex-direction: column;
     gap: 32px;
-    padding: 0 20px;
+    padding: 0;
     list-style: none;
   }
 
@@ -535,7 +559,7 @@ const styles = `
   /* ── Logged-out banner ── */
 
   .logged-out-banner-wrapper {
-    padding: 0 20px;
+    padding: 0;
     margin-bottom: 24px;
   }
 
@@ -786,11 +810,10 @@ function totalReactions(comment: CommentWithData): number {
 }
 
 export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactElement {
-  const { user, displayName, signIn, signUp } = useAuth();
+  const { user, displayName } = useAuth();
   const { comments, loading, error, sessionId, addComment, deleteComment, editComment, addReply, editReply, deleteReply, toggleReaction } = useComments(videoId, user?.id ?? null);
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [sortOpen, setSortOpen] = useState(false);
-  const [showAuthPanel, setShowAuthPanel] = useState(false);
   const sortRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -848,8 +871,6 @@ export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactE
 
         {user ? (
           <CommentForm onSubmit={handleAddComment} />
-        ) : showAuthPanel ? (
-          <AuthPanel onSignIn={signIn} onSignUp={signUp} defaultTab="register" />
         ) : (
           <div className="logged-out-banner-wrapper">
             <div className="logged-out-banner">
@@ -857,7 +878,7 @@ export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactE
                 <span className="logged-out-banner-title">Join the community</span>
                 <span className="logged-out-banner-subtitle">Do you want to comment or leave reaction?</span>
               </div>
-              <button className="logged-out-signup-btn" onClick={() => setShowAuthPanel(true)}>
+              <button className="logged-out-signup-btn" onClick={() => chrome.runtime.sendMessage({ type: 'OPEN_POPUP' })}>
                 Sign up
               </button>
             </div>

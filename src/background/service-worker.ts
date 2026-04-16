@@ -36,6 +36,10 @@ chrome.runtime.onMessage.addListener(
         sendResponse({ active: true, version: chrome.runtime.getManifest().version });
         break;
 
+      case 'OPEN_POPUP':
+        chrome.action.openPopup();
+        break;
+
       default:
         console.warn('[VideoComments] Nieznany typ wiadomości:', message.type);
     }
