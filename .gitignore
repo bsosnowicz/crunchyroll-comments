@@ -4,4 +4,5 @@ dist/
 .DS_Store
 .mcp.json
 .env
-claude.md
+claude
+.claude
