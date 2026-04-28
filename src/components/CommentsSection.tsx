@@ -15,6 +15,7 @@ function computeIsOwner(
   sessionId: string
 ): boolean {
   if (user) return itemUserId === user.id;
+  if (itemUserId !== null) return false;
   return itemSessionId !== null && itemSessionId === sessionId;
 }
 
@@ -878,7 +879,7 @@ export function CommentsSection({ videoId }: CommentsSectionProps): React.ReactE
                 <span className="logged-out-banner-title">Join the community</span>
                 <span className="logged-out-banner-subtitle">Do you want to comment or leave reaction?</span>
               </div>
-              <button className="logged-out-signup-btn" onClick={() => chrome.runtime.sendMessage({ type: 'OPEN_POPUP' })}>
+              <button className="logged-out-signup-btn" onClick={() => (globalThis as any).chrome?.runtime?.sendMessage({ type: 'OPEN_POPUP' })}>
                 Sign up
               </button>
             </div>

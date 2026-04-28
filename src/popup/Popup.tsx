@@ -153,40 +153,39 @@ function Popup(): React.ReactElement {
 
   // Inicjalizacja sesji Supabase w kontekście popupu
   useEffect(() => {
-    let didSetLoading = false;
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null);
-      if (!didSetLoading) {
-        didSetLoading = true;
-        setAuthLoading(false);
-      }
-      if (session) {
-        await bridgeSaveSession(session);
-      } else {
-        await bridgeClearSession();
-      }
-    });
+    let mounted = true;
 
     const init = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) return;
+      if (session) {
+        if (mounted) { setUser(session.user); setAuthLoading(false); }
+        return;
+      }
 
       const bridgeSession = await bridgeLoadSession() as import('@supabase/supabase-js').Session | null;
       if (bridgeSession) {
-        const { error } = await supabase.auth.setSession(bridgeSession);
-        if (error) await bridgeClearSession();
+        const { data, error } = await supabase.auth.setSession(bridgeSession);
+        if (!error && data.session) {
+          if (mounted) setUser(data.user);
+        } else {
+          await bridgeClearSession();
+        }
       }
-
-      if (!didSetLoading) {
-        didSetLoading = true;
-        setAuthLoading(false);
-      }
+      if (mounted) setAuthLoading(false);
     };
 
     init();
 
-    return () => subscription.unsubscribe();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (mounted) setUser(session?.user ?? null);
+      if (session) {
+        await bridgeSaveSession(session);
+      } else if (event === 'SIGNED_OUT') {
+        await bridgeClearSession();
+      }
+    });
+
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 
   const signIn = async (email: string, password: string) => {

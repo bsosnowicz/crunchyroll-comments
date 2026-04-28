@@ -136,15 +136,11 @@ export function useComments(videoId: string, userId: string | null = null) {
   }, [videoId, effectiveId]);
 
   const addComment = async (authorName: string, content: string, userId: string | null = null) => {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('comments')
-      .insert({ video_id: videoId, video_url: window.location.href, author_name: authorName, content, user_id: userId, session_id: sessionId })
-      .select().single();
+      .insert({ video_id: videoId, video_url: window.location.href, author_name: authorName, content, user_id: userId, session_id: sessionId });
 
     if (error) throw new Error('Nie udało się dodać komentarza');
-    if (data) {
-      setComments(prev => [{ ...data, replies: [], reactions: [] }, ...prev]);
-    }
   };
 
   const deleteComment = async (commentId: string) => {
